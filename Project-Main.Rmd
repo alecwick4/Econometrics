@@ -1,19 +1,23 @@
 ---
 title: "Oregon Health Project"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
 ---
-#Import Needed Packages
-```{r}
+##### Import Needed Packages
+```{r,message=FALSE}
 library(haven)
 library(ggplot2)
 library(gt)
 library(gtExtras)
 library(tidyverse)
 library(tidymodels)
+library(corrplot)
 ```
 
-# Import Data
-```{r}
+##### Import Data
+```{r,message=FALSE}
 #Raw Data
 oregonhie_survey12m_vars <- read_dta("Data/oregonhie_survey12m_vars.dta")
 oregonhie_survey6m_vars <- read_dta("Data/oregonhie_survey6m_vars.dta")
@@ -26,10 +30,12 @@ oregonhie_descriptive_vars <- read_dta("Data/oregonhie_descriptive_vars.dta")
 
 #Dataset renames
 DescVar <- read_dta("Data/oregonhie_descriptive_vars.dta")
+EdVar <- oregonhie_ed_vars <- read_dta("Data/oregonhie_ed_vars.dta")
 ```
 
-# Lottery Selection Analysis
-```{r}
+##### Lottery Selection Analysis
+The Oregon Health Study had over 70,000 applications for the healthcare lottery. Of the 70,000 applications, approximately 64% were selected. 
+```{r echo=FALSE}
 SelectedFT<-data.frame(table(DescVar$treatment))
 
 SelectedFT<-SelectedFT %>%
@@ -48,5 +54,42 @@ Selected_YN_Table <- SelectedFT %>%
              color = "light steel blue") %>% cols_label(Freq2 = "",
                                                         Freq = "Count")
 Selected_YN_Table
+```
+
+The selected applications consist of 13,702 males and 16,131 females. 
+```{r echo=FALSE}
+SelectedYFT<-data.frame(table(DescVar$treatment,DescVar$female_list))
+
+SelectedYFT<-SelectedYFT %>%
+              rename(Selected=Var1) %>%
+              rename(Sex=Var2) %>%
+              mutate(Selected = recode(Selected, '0' = 'No', '1' = 'Yes')) %>%
+              mutate(Sex = recode(Sex, '0' = 'Male', '1' = 'Female')) %>%
+              mutate(Freq2=Freq)
+
+Selected_SYN_Table <- SelectedYFT %>%
+  gt() %>%
+  fmt_number(columns = Freq,
+             use_seps = TRUE,
+             decimals = 0) %>%
+  gt_plt_bar(column = Freq2,
+             keep_column = FALSE,
+             color = c("light steel blue","light steel blue","pink1","pink1")) %>% cols_label(Freq2 = "",
+                                                        Freq = "Count")
+Selected_SYN_Table
+```
+
+##### Lottery Selection Analysis
+```{r}
+EdVarO<-na.omit(EdVar)
+c<-cor(EdVarO)
+corrplot(c)
+table<-data.frame(cor(EdVarO))
+
+png(filename = "mycorrplot.png", width = 2000, height = 2000)
+corrplot(c, method="number", addCoef.col = 1,number.cex = 0.3, tl.cex = 0.4)
+dev.off()
+
+write.csv(table, "Data/table.csv", row.names=FALSE)
 ```
 
