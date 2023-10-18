@@ -1,19 +1,52 @@
 ---
-title: "R Notebook"
+title: "Oregon Health Project"
 output: html_notebook
 ---
-
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
-
+#Import Needed Packages
 ```{r}
-print("test2")
+library(haven)
+library(ggplot2)
+library(gt)
+library(gtExtras)
+library(tidyverse)
+library(tidymodels)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+# Import Data
+```{r}
+#Raw Data
+oregonhie_survey12m_vars <- read_dta("Data/oregonhie_survey12m_vars.dta")
+oregonhie_survey6m_vars <- read_dta("Data/oregonhie_survey6m_vars.dta")
+oregonhie_survey0m_vars <- read_dta("Data/oregonhie_survey0m_vars.dta")
+oregonhie_stateprograms_vars <- read_dta("Data/oregonhie_stateprograms_vars.dta")
+oregonhie_patterns_vars <- read_dta("Data/oregonhie_patterns_vars.dta")
+oregonhie_inperson_vars <- read_dta("Data/oregonhie_inperson_vars.dta")
+oregonhie_ed_vars <- read_dta("Data/oregonhie_ed_vars.dta")
+oregonhie_descriptive_vars <- read_dta("Data/oregonhie_descriptive_vars.dta")
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+#Dataset renames
+DescVar <- read_dta("Data/oregonhie_descriptive_vars.dta")
+```
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+# Lottery Selection Analysis
+```{r}
+SelectedFT<-data.frame(table(DescVar$treatment))
+
+SelectedFT<-SelectedFT %>%
+              rename(Selected=Var1) %>%
+              mutate(Selected = recode(Selected, '0' = 'No', '1' = 'Yes')) %>%
+              mutate(Freq2=Freq)
+
+
+Selected_YN_Table <- SelectedFT %>%
+  gt() %>%
+  fmt_number(columns = Freq,
+             use_seps = TRUE,
+             decimals = 0) %>%
+  gt_plt_bar(column = Freq2,
+             keep_column = FALSE,
+             color = "light steel blue") %>% cols_label(Freq2 = "",
+                                                        Freq = "Count")
+Selected_YN_Table
+```
 
