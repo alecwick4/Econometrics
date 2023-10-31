@@ -40,7 +40,7 @@ SelectedFT<-data.frame(table(DescVar$treatment))
 
 SelectedFT<-SelectedFT %>%
               rename(Selected=Var1) %>%
-              mutate(Selected = recode(Selected, '0' = 'No', '1' = 'Yes')) %>%
+              mutate(Selected = if_else(Selected=="1",true="Yes",false="No")) %>%
               mutate(Freq2=Freq)
 
 
@@ -63,8 +63,9 @@ SelectedYFT<-data.frame(table(DescVar$treatment,DescVar$female_list))
 SelectedYFT<-SelectedYFT %>%
               rename(Selected=Var1) %>%
               rename(Sex=Var2) %>%
-              mutate(Selected = recode(Selected, '0' = 'No', '1' = 'Yes')) %>%
-              mutate(Sex = recode(Sex, '0' = 'Male', '1' = 'Female')) %>%
+              mutate(Selected = if_else(Selected=="1",true="Yes",false="No")) %>%
+              mutate(Sex = if_else(Sex=="1",true="Male",false="Female")) %>%
+              #mutate(Sex = recode(Sex, '0' = 'Male', '1' = 'Female')) %>%
               mutate(Freq2=Freq)
 
 Selected_SYN_Table <- SelectedYFT %>%
@@ -92,4 +93,49 @@ dev.off()
 
 write.csv(table, "Data/table.csv", row.names=FALSE)
 ```
+
+```{r}
+#English
+English<-data.frame(table(DescVar$treatment,DescVar$english_list))
+
+English<-English %>%
+              rename(Selected=Var1) %>%
+              rename(English=Var2) %>%
+              mutate(Selected = if_else(Selected=="1",true="Yes",false="No")) %>%
+              mutate(English = if_else(Selected=="1",true="Yes",false="No")) %>%
+              mutate(Freq2=Freq)
+
+English_Table <- English %>%
+  gt() %>%
+  fmt_number(columns = Freq,
+             use_seps = TRUE,
+             decimals = 0) %>%
+  gt_plt_bar(column = Freq2,
+             keep_column = FALSE,
+             color = c("light steel blue 3","light steel blue 3","wheat","wheat")) %>% cols_label(Freq2 = "",
+                                                        Freq = "Count")
+English_Table
+```
+
+```{r}
+joinedData<-left_join(DescVar, EdVar, by = "person_id")
+
+js<-joinedData %>%
+  filter(treatment==1)
+
+js2<-joinedData %>%
+  filter(treatment==0)
+
+sum(js$any_visit_ed,na.rm = TRUE)/nrow(js)
+sum(js2$any_visit_ed,na.rm = TRUE)/nrow(js2)
+
+sum(js$any_hosp_ed,na.rm = TRUE)/nrow(js)
+sum(js2$any_hosp_ed,na.rm = TRUE)/nrow(js2)
+
+sum(js$charg_tot_ed,na.rm = TRUE)/nrow(js)
+sum(js2$charg_tot_ed,na.rm = TRUE)/nrow(js2)
+
+write.csv(joinedData, "joined_Data.csv", row.names=FALSE)
+```
+
 
