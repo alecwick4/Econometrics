@@ -14,6 +14,8 @@ library(gtExtras)
 library(tidyverse)
 library(tidymodels)
 library(corrplot)
+library(dplyr)
+library(caret)
 ```
 
 ##### Import Data
@@ -31,6 +33,7 @@ oregonhie_descriptive_vars <- read_dta("Data/oregonhie_descriptive_vars.dta")
 #Dataset renames
 DescVar <- read_dta("Data/oregonhie_descriptive_vars.dta")
 EdVar <- oregonhie_ed_vars <- read_dta("Data/oregonhie_ed_vars.dta")
+PreSur<-oregonhie_inperson_vars
 ```
 
 ##### Lottery Selection Analysis
@@ -102,7 +105,7 @@ English<-English %>%
               rename(Selected=Var1) %>%
               rename(English=Var2) %>%
               mutate(Selected = if_else(Selected=="1",true="Yes",false="No")) %>%
-              mutate(English = if_else(Selected=="1",true="Yes",false="No")) %>%
+              mutate(English = if_else(English=="1",true="Yes",false="No")) %>%
               mutate(Freq2=Freq)
 
 English_Table <- English %>%
@@ -137,5 +140,216 @@ sum(js2$charg_tot_ed,na.rm = TRUE)/nrow(js2)
 
 write.csv(joinedData, "joined_Data.csv", row.names=FALSE)
 ```
+```{r}
+#JD2<-left_join(joinedData, PreSur, by = "person_id")
+#colnames(JD2)
 
+table(PreSur$ast_dx_pre_lottery_inp)
+table(PreSur$dia_dx_pre_lottery_inp)
+table(PreSur$hbp_dx_pre_lottery_inp)
+table(PreSur$chl_dx_pre_lottery_inp)
+table(PreSur$ami_dx_pre_lottery_inp)
+table(PreSur$chf_dx_pre_lottery_inp)
+table(PreSur$emp_dx_pre_lottery_inp)
+table(PreSur$kid_dx_pre_lottery_inp)
+table(PreSur$cancer_dx_pre_lottery_inp)
+table(PreSur$dep_dx_pre_lottery_inp)
+
+
+JD3 <- JD2 %>%
+  select(
+    person_id,
+    treatment,
+    any_visit_ed,
+    age_inp,
+    health_last12_inp,
+    sf4_inp,
+    emp_dx_pre_lottery_inp,
+    dep_dx_pre_lottery_inp,
+    ast_dx_pre_lottery_inp,
+    dia_dx_pre_lottery_inp,
+    hbp_dx_pre_lottery_inp,
+    chl_dx_pre_lottery_inp,
+    ami_dx_pre_lottery_inp,
+    kid_dx_pre_lottery_inp,
+    cancer_dx_pre_lottery_inp
+  ) %>%
+  filter_at(vars(any_visit_ed, age_inp), all_vars(!is.na(.))) %>%
+  filter(treatment == 1)
+
+set.seed(123)  # Set a seed for reproducibility
+splitIndex <- createDataPartition(JD3$any_visit_ed, p = 0.7, list = FALSE)
+training_data <- JD3[splitIndex, ]
+testing_data <- JD3[-splitIndex, ]
+
+```
+
+```{r}
+# Assuming you have a data frame named 'data' with your variables and a binary response variable 'response'
+model <- glm(any_visit_ed ~ age_inp+
+                            health_last12_inp+
+                            sf4_inp+emp_dx_pre_lottery_inp+
+                            dep_dx_pre_lottery_inp+
+                            emp_dx_pre_lottery_inp+
+                            ast_dx_pre_lottery_inp+
+                            dia_dx_pre_lottery_inp+
+                            hbp_dx_pre_lottery_inp+
+                            chl_dx_pre_lottery_inp+
+                            ami_dx_pre_lottery_inp+
+                            kid_dx_pre_lottery_inp+
+                            cancer_dx_pre_lottery_inp,data = training_data, family = binomial(link = "logit"))
+summary(model)
+
+model2 <- glm(any_visit_ed ~ age_inp+
+                            health_last12_inp+
+                            sf4_inp+
+                            dep_dx_pre_lottery_inp+
+                            ast_dx_pre_lottery_inp+
+                            chl_dx_pre_lottery_inp+
+                            ami_dx_pre_lottery_inp,data = training_data, family = binomial(link = "logit"))
+summary(model2)
+```
+
+# Model #1
+```{r}
+predicted_probabilities <- predict(model, newdata = testing_data, type = "response")
+
+predicted_classes <- ifelse(predicted_probabilities > 0.50, 1, 0)  # Binary classification threshold
+actual_classes <- testing_data$any_visit_ed
+
+# Calculate performance metrics
+confusion_matrix <- table(Actual = actual_classes, Predicted = predicted_classes)
+accuracy <- (confusion_matrix[1, 1] + confusion_matrix[2, 2]) / sum(confusion_matrix)
+precision <- confusion_matrix[2, 2] / (confusion_matrix[2, 2] + confusion_matrix[1, 2])
+recall <- confusion_matrix[2, 2] / (confusion_matrix[2, 2] + confusion_matrix[2, 1])
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+print(confusion_matrix)
+print(accuracy)
+print(precision)
+print(recall)
+print(f1_score)
+```
+
+# Model #2
+```{r}
+predicted_probabilities <- predict(model2, newdata = testing_data, type = "response")
+
+predicted_classes <- ifelse(predicted_probabilities > 0.50, 1, 0)  # Binary classification threshold
+actual_classes <- testing_data$any_visit_ed
+
+# Calculate performance metrics
+confusion_matrix <- table(Actual = actual_classes, Predicted = predicted_classes)
+accuracy <- (confusion_matrix[1, 1] + confusion_matrix[2, 2]) / sum(confusion_matrix)
+precision <- confusion_matrix[2, 2] / (confusion_matrix[2, 2] + confusion_matrix[1, 2])
+recall <- confusion_matrix[2, 2] / (confusion_matrix[2, 2] + confusion_matrix[2, 1])
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+print(confusion_matrix)
+print(accuracy)
+print(precision)
+print(recall)
+print(f1_score)
+```
+
+# Logistic Regression - Tidymodel
+```{r}
+training_data$any_visit_ed<-as.factor(training_data$any_visit_ed)
+testing_data$any_visit_ed<-as.factor(testing_data$any_visit_ed)
+
+# Create Tidymodel Recipe
+logistic_recipe <-
+  recipe(
+    any_visit_ed ~ age_inp +
+      health_last12_inp +
+      sf4_inp + emp_dx_pre_lottery_inp +
+      dep_dx_pre_lottery_inp +
+      emp_dx_pre_lottery_inp +
+      ast_dx_pre_lottery_inp +
+      dia_dx_pre_lottery_inp +
+      hbp_dx_pre_lottery_inp +
+      chl_dx_pre_lottery_inp +
+      ami_dx_pre_lottery_inp +
+      kid_dx_pre_lottery_inp +
+      cancer_dx_pre_lottery_inp,
+    data = training_data
+  )
+
+# Specify Model
+logistic_model <- logistic_reg()
+
+# Establish Workflow
+logistic_workflow <- workflow() %>%
+  add_recipe(logistic_recipe) %>%
+  add_model(logistic_model)
+
+# Number of Folds
+folds <- vfold_cv(training_data, v = 10)
+
+# Resample
+logistic_resample_fit <- logistic_workflow %>%
+  fit_resamples(resamples = folds)
+
+metrics <- logistic_resample_fit %>%
+  collect_metrics() %>%
+  select(.metric,mean,n)
+
+metrics
+
+logistic_fit <- fit(logistic_workflow, data = training_data)
+
+tidy(logistic_fit)
+
+#Logistic Curve
+
+# predicted_probabilities <- data.frame(predict(model2, newdata = training_data, type = "response"))
+# predicted_probabilities$Index <- 1:nrow(predicted_probabilities)
+# predicted_probabilities$probability<-predicted_probabilities$predict.model2..newdata...training_data..type....response..
+# predicted_probabilities$predict.model2..newdata...training_data..type....response..<-NULL
+# 
+# p<-predicted_probabilities %>%
+#   arrange(probability)
+# p$Index<- 1:nrow(predicted_probabilities)
+# 
+# x<-seq(0,1,length=3734)
+# 
+# ggplot(data = p, aes(x = x, y = probability)) +
+#   geom_line() +
+#   labs(x = "Visted an ER during Study", y = "Predicted Probabilities") +
+#   ggtitle("Sigmoid Curve")+
+#   annotate("text", x = .85, y = .9, label = "0 = No ER Visit")+
+#   annotate("text", x = .832, y = .85, label = "1 = ER Visit")
+# 
+# print(logistic_curve_plot)
+
+```
+
+# Model Evaluation
+```{r}
+fit_workflow <- fit(logistic_workflow, training_data)
+predict(fit_workflow, testing_data)
+
+# Augment
+augment(fit_workflow,new_data = testing_data)
+
+# Confusion Matrix
+augment(fit_workflow,new_data = testing_data)%>%
+  conf_mat(truth = any_visit_ed, estimate = .pred_class)%>%
+  autoplot(type = "heatmap")
+
+# Accuracy Metric
+augment(fit_workflow, new_data = testing_data) %>%
+  accuracy(truth = any_visit_ed, estimate = .pred_class)
+
+#ROC
+augment(fit_workflow, new_data = training_data) %>% 
+  roc_auc(truth = any_visit_ed, .pred_0)
+
+# ROC Graph
+augment(fit_workflow, new_data = testing_data) %>% 
+  roc_curve(truth = any_visit_ed, .pred_0) %>%
+  autoplot()
+
+
+```
 
