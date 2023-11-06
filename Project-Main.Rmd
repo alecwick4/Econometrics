@@ -55,7 +55,8 @@ Selected_YN_Table <- SelectedFT %>%
   gt_plt_bar(column = Freq2,
              keep_column = FALSE,
              color = "light steel blue") %>% cols_label(Freq2 = "",
-                                                        Freq = "Count")
+                                                        Freq = "Count") %>%
+  tab_header(title="",subtitle = "Table #1 - Lottery Selection") 
 Selected_YN_Table
 ```
 
@@ -78,7 +79,7 @@ Selected_SYN_Table <- SelectedYFT %>%
              decimals = 0) %>%
   gt_plt_bar(column = Freq2,
              keep_column = FALSE,
-             color = c("light steel blue","light steel blue","pink1","pink1")) %>% cols_label(Freq2 = "",
+             color = c("pink1","pink1","light steel blue","light steel blue")) %>% cols_label(Freq2 = "",
                                                         Freq = "Count")
 Selected_SYN_Table
 ```
@@ -138,10 +139,10 @@ sum(js2$any_hosp_ed,na.rm = TRUE)/nrow(js2)
 sum(js$charg_tot_ed,na.rm = TRUE)/nrow(js)
 sum(js2$charg_tot_ed,na.rm = TRUE)/nrow(js2)
 
-write.csv(joinedData, "joined_Data.csv", row.names=FALSE)
+#write.csv(joinedData, "joined_Data.csv", row.names=FALSE)
 ```
 ```{r}
-#JD2<-left_join(joinedData, PreSur, by = "person_id")
+JD2<-left_join(joinedData, PreSur, by = "person_id")
 #colnames(JD2)
 
 table(PreSur$ast_dx_pre_lottery_inp)
@@ -177,6 +178,9 @@ JD3 <- JD2 %>%
   filter_at(vars(any_visit_ed, age_inp), all_vars(!is.na(.))) %>%
   filter(treatment == 1)
 
+mean(JD3$age_inp)
+hist(JD3$age_inp)
+
 set.seed(123)  # Set a seed for reproducibility
 splitIndex <- createDataPartition(JD3$any_visit_ed, p = 0.7, list = FALSE)
 training_data <- JD3[splitIndex, ]
@@ -186,6 +190,7 @@ testing_data <- JD3[-splitIndex, ]
 
 ```{r}
 # Assuming you have a data frame named 'data' with your variables and a binary response variable 'response'
+library(gtsummary)
 model <- glm(any_visit_ed ~ age_inp+
                             health_last12_inp+
                             sf4_inp+emp_dx_pre_lottery_inp+
@@ -199,6 +204,11 @@ model <- glm(any_visit_ed ~ age_inp+
                             kid_dx_pre_lottery_inp+
                             cancer_dx_pre_lottery_inp,data = training_data, family = binomial(link = "logit"))
 summary(model)
+tbl_regression(model)
+t<-tidy(model)
+t %>%
+  gt()
+
 
 model2 <- glm(any_visit_ed ~ age_inp+
                             health_last12_inp+
@@ -262,15 +272,12 @@ logistic_recipe <-
   recipe(
     any_visit_ed ~ age_inp +
       health_last12_inp +
-      sf4_inp + emp_dx_pre_lottery_inp +
+      sf4_inp + 
       dep_dx_pre_lottery_inp +
-      emp_dx_pre_lottery_inp +
       ast_dx_pre_lottery_inp +
       dia_dx_pre_lottery_inp +
-      hbp_dx_pre_lottery_inp +
       chl_dx_pre_lottery_inp +
       ami_dx_pre_lottery_inp +
-      kid_dx_pre_lottery_inp +
       cancer_dx_pre_lottery_inp,
     data = training_data
   )
@@ -298,7 +305,7 @@ metrics
 
 logistic_fit <- fit(logistic_workflow, data = training_data)
 
-tidy(logistic_fit)
+tidy(logistic_fit) %>% gt()
 
 #Logistic Curve
 
@@ -341,7 +348,11 @@ augment(fit_workflow,new_data = testing_data)%>%
 augment(fit_workflow, new_data = testing_data) %>%
   accuracy(truth = any_visit_ed, estimate = .pred_class)
 
-#ROC
+# Specificity Metric
+augment(fit_workflow, new_data = testing_data) %>%
+  sensitivity(truth = any_visit_ed, estimate = .pred_class)
+
+# ROC
 augment(fit_workflow, new_data = training_data) %>% 
   roc_auc(truth = any_visit_ed, .pred_0)
 
@@ -349,6 +360,59 @@ augment(fit_workflow, new_data = training_data) %>%
 augment(fit_workflow, new_data = testing_data) %>% 
   roc_curve(truth = any_visit_ed, .pred_0) %>%
   autoplot()
+
+
+```
+
+```{r}
+colnames(JD2)
+
+JD4 <- JD2 %>%
+  select(chl_dx_pre_lottery_inp,
+         chl_dx_post_lottery_inp,
+         dep_dx_pre_lottery_inp,
+         dep_dx_post_lottery_inp,
+    person_id,
+    treatment,
+    age_inp,
+    sf4_inp,
+    happiness_inp
+  ) %>%
+  filter_at(vars(age_inp), all_vars(!is.na(.))) %>%
+  filter(treatment == 1)
+
+JD5 <- JD2 %>%
+  select(chl_dx_pre_lottery_inp,
+         chl_dx_post_lottery_inp,
+         dep_dx_pre_lottery_inp,
+         dep_dx_post_lottery_inp,
+    person_id,
+    treatment,
+    age_inp,
+    sf4_inp,
+    happiness_inp
+  ) %>%
+  filter_at(vars(age_inp), all_vars(!is.na(.))) %>%
+  filter(treatment == 0)
+
+mean(JD5$chl_dx_pre_lottery_inp,na.rm = TRUE)
+mean(JD5$chl_dx_post_lottery_inp,na.rm = TRUE)
+
+mean(JD5$dep_dx_pre_lottery_inp,na.rm = TRUE)
+mean(JD5$dep_dx_post_lottery_inp,na.rm = TRUE)
+
+
+
+
+mean(JD4$chl_dx_pre_lottery_inp,na.rm = TRUE)
+mean(JD4$chl_dx_post_lottery_inp,na.rm = TRUE)
+
+mean(JD4$dep_dx_pre_lottery_inp,na.rm = TRUE)
+mean(JD4$dep_dx_post_lottery_inp,na.rm = TRUE)
+
+mean(JD4$happiness_inp,na.rm = TRUE)
+mean(JD5$happiness_inp,na.rm = TRUE)
+
 
 
 ```
